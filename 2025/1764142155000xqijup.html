@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌋 Volcano Plot Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/svg2pdf.js@latest/dist/svg2pdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌋 Volcano Plot Visualizer</h1>
+            <p>Upload your differential expression analysis results to create interactive volcano plots - No installation required!</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Left Panel: Help & Running Log -->
+            <div class="column left-column" style="display: block; height: 1000px; overflow-y: auto;">
+                <h2>📚 Help & Status</h2>
+                
+                <!-- Collapsible Help Sections -->
+                <div class="help-container">
+                    <div class="help-section">
+                        <div class="help-header" onclick="toggleHelpSection('purpose')">
+                            <h3>🎯 Purpose</h3>
+                            <!-- <span class="toggle-icon">▼</span> -->
+                        </div>
+                        <div class="help-content" id="purpose">
+                            <p>This tool generates interactive volcano plots for RNA-seq differential expression analysis results. It supports various analysis tools and provides customizable visualization options.</p>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-header" onclick="toggleHelpSection('formats')">
+                            <h3>📋 Supported Formats</h3>
+                            <!-- <span class="toggle-icon">▼</span> -->
+                        </div>
+                        <div class="help-content" id="formats">
+                            <ul>
+                                <li><strong>DESeq2:</strong> gene, log2FoldChange, pvalue, padj</li>
+                                <li><strong>edgeR:</strong> gene, logFC, PValue, FDR</li>
+                                <li><strong>limma:</strong> gene, logFC, P.Value, adj.P.Val</li>
+                                <li><strong>metabolomics:</strong> metabolite, log2FoldChange, pvalue, padj</li>
+                                <li><strong>other:</strong> gene, log2FoldChange, pvalue, padj</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-header" onclick="toggleHelpSection('features')">
+                            <h3>📊 Features</h3>
+                            <!-- <span class="toggle-icon">▼</span> -->
+                        </div>
+                        <div class="help-content" id="features">
+                            <ul>
+                                <li>Interactive hover tooltips</li>
+                                <li>Click to add gene/metabolite into the plot</li>
+                                <li>Customizable cutoffs and colors</li>
+                                <li>Customizable x/y labels</li>
+                                <li>Customizable legend title</li>
+                                <li>Export plots in PNG, SVG, PDF</li>
+                                <li>Real-time plot updates</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="help-section collapsible">
+                    <div class="help-header" onclick="toggleHelpSection('features')">
+                        <h3>📜 Version & Copyright</h3>
+                    </div>
+                    <div class="help-content" id="features">
+                        <ul>
+                            <li><span style="color: #845EC2;"><strong>Version:</strong></span> 1.1.0</li>
+                            <li><span style="color: #845EC2;"><strong>Copyright:</strong></span> © 2025 Shang Xia Qiu Suo. All rights reserved.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Panel: Input Parameters, Plot and Settings -->
+            <div class="column middle-column" style="display: block; height: 1000px; overflow-y: auto;">
+                <h2>📊 Upload Analysis Result *</h2>
+
+                <div class="input-group" id="upload-group">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" class="file-input" accept=".csv,.tsv,.txt" />
+                        <button class="file-input-btn" onclick="document.getElementById('fileInput').click()">
+                            📁 Select Result File
+                        </button>
+                    </div>
+                    <div id="fileName" class="file-status">No file selected</div>
+                    <div class="analysis-info">
+                        ⚙️ Analysis Tool: <strong><span id="detectedType" style="color: #845EC2; font-weight: bold;">Auto-detect</span></strong>
+                    </div>
+                </div>
+
+                <div id="noDataMessage" class="no-data-placeholder">
+                    <div class="placeholder-content">
+                        <div style="text-align: center; margin: 0 auto;">
+                            <h3 style="font-size: 20px;">Ready to Create Your 🌋 Volcano Plot 🌋</h3>
+                        </div>
+                        <p style="margin-left: 20px;"Upload your differential expression analysis file to get started!</p>
+                        
+                        <img src="volcano_plot.example.png" alt="Example Volcano Plot" style="max-width: 100%; height: auto;">
+                        
+                        <!-- Add wider line to split these two divs -->
+                        <hr style="border: none; height: 5px; background-color: #7e7e7e; margin: 20px 0;">
+
+                        
+                        <div style="text-align: center; margin: 0 auto;">
+                            <h3 style="font-size: 20px;">📋 Example Input Data</h3> 
+                        </div>
+                        <p style="margin-left: 20px; text-align: left;">Here's an example of the required data format:</p>
+                        
+                        <div class="feature-grid">
+                            <div class="feature-column" style="width:100%; text-align: left;">
+                                <h4 style="margin-left: 20px; font-size: 16px;">📋 Sample Data (First 5 rows)</h4>
+                                <div style="margin-left: 40px; background-color: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; overflow-x: auto;">
+                                    <table style="border-collapse: collapse; width:100%; min-width: 500px;">
+                                        <thead>
+                                            <tr style="background-color: #e9ecef;">
+                                                <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">gene</th>
+                                                <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">log2foldchange</th>
+                                                <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">pvalue</th>
+                                                <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">padj</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">Bop1</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">-0.00862597317223672</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.981377390865742</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.997227528025537</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">Plekha3</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">-0.467099870645191</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.424361700516433</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.920050562227565</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">Dmtn</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.340023076147197</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.730606152379986</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.958171377650938</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">Sh3glb2</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">-0.127291655100871</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.787636335477865</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.966338632233251</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">Narf</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.240015859464442</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.640669772546012</td>
+                                                <td style="border: 1px solid #dee2e6; padding: 8px;">0.945872243918395</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="feature-column" style="width: 100%; margin-top: 20px; text-align: left;">
+                            <h4 style="margin-left: 20px; font-size: 16px;">📝 How to Prepare Your Data</h4>
+                            <ul style="margin-left: 40px;">
+                                <li><strong style="font-size: 14px;">File Format:</strong> Tab-delimited text file (.txt, .tsv, .csv)</li>
+                                <li><strong style="font-size: 14px;">Required Columns:</strong> Four columns (gene, log2foldchange, pvalue, padj)</li>
+                            </ul>
+                            
+                            <h4 style="margin-top: 15px; margin-left: 20px; font-size: 16px; margin-bottom: 10px;">💡 Creating Tab-Delimited Files</h4>
+                            <div style="margin-left: 40px; background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                                <p style="font-size: 14px;"><strong>Using Excel:</strong></p>
+                                <ol style="margin-left: 40px;">
+                                    <li style="font-size: 14px;">Open your data in Excel</li>
+                                    <li style="font-size: 14px;"><strong>"File" → "Save As"</strong></li>
+                                    <li style="font-size: 14px;"><strong>"Text (Tab delimited) (*.txt)"</strong> from the file type dropdown</li>
+                                    <li style="font-size: 14px;">Click "Save"</li>
+                                </ol>
+                                
+                                <p style="margin-top: 20px; font-size: 14px;"><strong>Using WPS Office:</strong></p>
+                                <ol style="margin-left: 40px;">
+                                    <li style="font-size: 14px;">Open your data in WPS Spreadsheets</li>
+                                    <li style="font-size: 14px;"><strong>"File" → "Save As"</strong></li>
+                                    <li style="font-size: 14px;"><strong>"Text (Tab delimited) (*.txt)"</strong> from the format options</li>
+                                    <li style="font-size: 14px;">Click "Save"</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="plotSection" style="display: none;" class="plot-section">
+                    <h2>🌋 Interactive Volcano Plot</h2>
+                    <div class="plot-container">
+                        <div class="download-controls">
+                            <button id="expandHeight" class="glass-btn" title="Expand height">➕ H</button>
+                            <button id="reduceHeight" class="glass-btn" title="Reduce height">➖ H</button>
+                            <button id="expandWidth" class="glass-btn" title="Expand width">➕ W</button>
+                            <button id="reduceWidth" class="glass-btn" title="Reduce width">➖ W</button>
+                            <button id="exportSVG" class="glass-btn" title="Export as SVG">⬇️ SVG</button>
+                            <button id="exportPDF" class="glass-btn" title="Export as PDF">⬇️ PDF</button>
+                            <button id="exportPNG" class="glass-btn" title="Export as PNG">⬇️ PNG</button>
+                        </div>
+                        
+                        <div id="volcanoPlot" class="plot-area"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Input Parameters, Plot and Settings -->
+            <div class="column right-column" style="display: block; height: 1000px;">
+                <!-- Running Log Section -->
+                <div class="log-section" style="height: 250px;">
+                    <h3>📈 Status & Progress</h3>
+                    <div class="status-area" id="logContainer">
+                        <div class="log-entry info">
+                            <span class="timestamp">[00:00:00]</span>
+                            <span class="message">🚀 Application initialized and ready</span>
+                        </div>
+                    </div>
+                    <!-- <button class="clean-btn" id="clearLog" style="margin-top: 10px;">🗑️ Clear Log</button> -->
+                </div>
+
+                <div id="settingsSection" class="settings-section" style="display: none;">
+                    <h3>⚙️ Plot Settings</h3>
+                    <div class="settings-grid" style="overflow-y: auto; height: 660px;">
+                        <!-- Cutoff Selection -->
+                        <details id="cutoffSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the cutoff settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                ✂️ Cutoff Setting
+                            </summary>
+                            <div class="input-row" style="margin-left: 4px; margin-bottom: 6px;">
+                                <div class="input-group-first" title="click to choose the log2(fold change) cutoff">
+                                    <label>Fold change</label>
+                                    <select id="log2fcCutoff" class="form-select">
+                                        <option value="0.5"><span style="color: #845EC2;">0.5</span></option>
+                                        <option value="1" selected><span style="color: #845EC2;">1</span></option>
+                                        <option value="1.5"><span style="color: #845EC2;">1.5</span></option>
+                                        <option value="2"><span style="color: #845EC2;">2</span></option>
+                                        <option value="2.5"><span style="color: #845EC2;">2.5</span></option>
+                                        <option value="3"><span style="color: #845EC2;">3</span></option>
+                                    </select>
+                                </div>
+                                
+                                <div class="input-group-first" title="click to choose the p-value cutoff" style="margin-right: 8px;">
+                                    <label><i>P</i> value</label>
+                                    <select id="pvalueCutoff" class="form-select">
+                                        <option value="0.0001">0.0001</option>
+                                        <option value="0.001">0.001</option>
+                                        <option value="0.01">0.01</option>
+                                        <option value="0.05" selected>0.05</option>
+                                        <option value="0.1">0.1</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Y Axis Selection -->
+                        <details id="yAxisSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the y-axis settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                📊 Y-axis Setting
+                            </summary>
+                            <div class="input-row" style="margin-left: 4px; margin-bottom: 6px;">
+                                <div class="input-group-first" title="Select which p-value type to use for y-axis">
+                                    <label>Y-axis Select:</label>
+                                    <select id="yAxisType" class="form-select">
+                                        <option value="padj" selected>-log10(padj)</option>
+                                        <option value="pvalue">-log10(pvalue)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Dot Size Setting -->
+                        <details id="dotSizeSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the dot size settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                🔘Dot Size Style Setting
+                            </summary>
+                        
+                            <div class="input-row" style="margin-left: 4px; margin-bottom: 6px;">
+                                <div class="input-group-second" title="click to choose the dot size mode">
+                                    <label>Dot Size Mode:</label>
+                                    <select id="dotSizeMode" class="form-select">
+                                        <option value="pvalue">-log10 Mapping</option>
+                                        <option value="fixed">Fixed Size</option>
+                                    </select>
+                                </div>
+                                <div class="input-group-second" id="dotSizeGroup" title="click to choose the dot size" display="none" style="margin-right: 8px;">
+                                    <label>Size</label>
+                                    <select id="dotSizeSelect" class="form-select">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3" selected>3</option>
+                                        <option value="4">4</option>
+                                        <option value="5">5</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Scaling Setting -->
+                        <!-- <details id="scalingSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                📏 Scaling Setting
+                            </summary> -->
+
+                            <!-- Dot Size Scaling -->
+                            <!-- <div style="margin-left: 16px;">
+                                <div style="margin-bottom: 10px;">
+                                    <label>
+                                        <span style="font-weight: 700; font-size: 12px; color: #9c9c9c;">Scale dot size</span>
+                                    </label>
+                                </div>
+                                <input type="range" id="dotSizeScaler" min="0.1" max="3" value="1" step="0.1" style="width: 70%; margin-left: 10px;" oninput="document.getElementById('dotSizeScalerValue').textContent = this.value">
+                                <span id="dotSizeScalerValue">1</span>
+                            </div> -->
+
+                            <!-- Text Elements Font Size Scaling -->
+                            <!-- <div style="margin-left: 16px;">
+                                <div style="margin-bottom: 10px;">
+                                    <label>
+                                        <span style="font-weight: 700; font-size: 12px; color: #9c9c9c;">Scale text font size</span>
+                                    </label>
+                                </div>
+                                <input type="range" id="textFontSizeScaler" min="0.1" max="3" value="1" step="0.1" style="width: 70%; margin-left: 10px;" oninput="document.getElementById('textFontSizeScalerValue').textContent = this.value">
+                                <span id="textFontSizeScalerValue">1</span>
+                            </div>
+                        </details> -->
+
+                        <!-- Show Top DEGS Settings -->
+                        <details id="showTopDEGSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the show top DEGS settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                🏆 Show Top DEGs Setting
+                            </summary>
+                            <div class="input-row-gene" style="margin-left: 4px; margin-bottom: 0px;">
+                                <div class="input-group-first">
+                                    <label>Labeling Mode</label>
+                                    <select id="labelingMode" class="form-select">
+                                        <!-- <option value="combined" selected>Combined score</option> -->
+                                        <option value="log2fc">Log2(fold change)</option>
+                                        <option value="pvalue">P-value</option>
+                                    </select>
+                                </div>
+                                <div class="input-group-first" style="margin-right: 8px;">
+                                    <label>Top DEGs</label>
+                                    <select id="topDEGCount" class="form-select">
+                                        <option value="0" selected>None</option>
+                                        <option value="1">Top 1</option>
+                                        <option value="2">Top 2</option>
+                                        <option value="3">Top 3</option>
+                                        <option value="4">Top 4</option>
+                                        <option value="5">Top 5</option>
+                                        <option value="6">Top 6</option>
+                                        <option value="7">Top 7</option>
+                                        <option value="8">Top 8</option>
+                                        <option value="9">Top 9</option>
+                                        <option value="10">Top 10</option>
+                                        <option value="15">Top 15</option>
+                                        <option value="20">Top 20</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-group-add" style="margin-left: 4px; margin-bottom: 6px; margin-top: 4px;">
+                                <button id="labelTopDEGs" class="add-gene-name-btn">🏷️ Add</button>
+                            </div>
+                        </details>
+
+                        <!-- Manually Add DEGS Settings -->
+                        <details id="manuallyAddDEGSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the manually add DEGS settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                ✏️ Manually Add DEGs Settings
+                            </summary>
+                            <div class="input-manually-add" style="margin-left: 2.5%;">
+                                <div style="margin-top: 10px;">
+                                    <textarea id="highlightGenes" placeholder="Enter gene IDs, one per line" class="form-textarea"></textarea>
+                                </div>
+                                <div class="highlight-controls" style="margin: 0 auto; margin-bottom: 10px;">
+                                    <button id="highlightBtn" class="add-gene-name-btn">🏷️ Add labels</button>
+                                    <button id="clearLabels" class="add-gene-name-btn secondary">🗑️ Clear all labels</button>
+                                </div>
+                            </div>
+                        </details>
+                        
+                        <!-- Colors Settings -->
+                        <details id="colorsSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the colors settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                🎨 Colors Settings
+                            </summary>
+                            <!-- <div class="input-row"> -->
+                            <div class="input-group-second" title="click to choose the color mode" style="margin-left: 5%;">
+                                <label>Color Mode</label>
+                                <select id="colorModeSelect" class="form-select">
+                                    <option value="gradient" style="margin-bottom: 0px; color: #9e43ff; font-size: 14px;">Gradient Colormaps</option>
+                                    <option value="divergent" style="margin-bottom: 0px; color: #9e43ff; font-size: 14px;">Divergent Colors</option>
+                                </select>
+                                <!-- <div id="colorModeSelect" class="radio-group-container">
+                                    <div class="radio-option" style="margin-left: 6px;">
+                                        <input type="radio" name="colorModeSelect" value="gradient" id="colorMode_gradient" checked>
+                                        <label for="colorMode_gradient" style="margin-bottom: 0px; color: #9e43ff; font-size: 14px;">Gradient Colormaps</label>
+                                    </div>
+                                    <div class="radio-option" style="margin-left: 6px;">
+                                        <input type="radio" name="colorModeSelect" value="divergent" id="colorMode_divergent">
+                                        <label for="colorMode_divergent" style="margin-bottom: 0px; color: #9e43ff;  font-size: 14px;">Divergent Colors</label>
+                                    </div>
+                                </div> -->
+                            </div>
+                            <!-- </div> -->
+                            <div id="gradientControls" class="input-group-third" title="click to choose the gradient colormap" style="margin-left: 10%;">
+                                <label for="colormapSelect" style="font-weight: 800; font-size: 12px;">Gradient colormap</label>
+                                <select id="colormapSelect" class="form-select">
+                                    <option value="RdYlBu_r">Blue-Yellow-Red</option>
+                                    <option value="bwr">Blue-White-Red</option>
+                                    <option value="RdBu_r">Blue-Red</option>
+                                    <option value="Spectral">Spectral (Rainbow)</option>
+                                    <option value="Turbo">Turbo (High Contrast)</option>
+                                    <option value="Cividis">Cividis (Colorblind)</option>
+                                </select>
+                            </div>
+                            <div id="divergentControls" class="input-group-divergent" style="display: none;" title="click to choose the divergent colors">
+                                <div class="color-row">
+                                    <div class="input-group-up" title="Click to change the color of upregulated genes">
+                                        <label for="upColor" style="margin-bottom: 0px; color: #ff4444; font-weight: 600; font-size: 12px;">Upregulated:</label>
+                                        <input type="color" id="upColor" value="#ff4444" class="color-picker">
+                                    </div>
+                                </div>
+                                <div class="color-row">
+                                    <div class="input-group-down" title="Click to change the color of downregulated genes">
+                                        <label for="downColor" style="margin-bottom: 0px; color: #4444ff; font-weight: 600; font-size: 12px;">Downregulated:</label>
+                                        <input type="color" id="downColor" value="#4444ff" class="color-picker">
+                                    </div>
+                                </div>
+                                <div class="color-row">
+                                    <div class="input-group-ns" title="Click to change the color of non-significant genes">
+                                        <label for="nsColor" style="margin-bottom: 0px; color: #888888; font-weight: 600; font-size: 12px;">Non-significant:</label>
+                                        <input type="color" id="nsColor" value="#888888" class="color-picker">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Font Selection -->
+                        <details id="fontStyleSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                🔤 FontFamily Setting
+                            </summary>
+
+                            <div class="selection-grid" style="padding: 8px 12px; margin-left: 20px;">
+                                <div class="y-axis-widget">
+                                    <label class="checkbox-label" style="font-weight: 500; font-size: 1em;">
+                                        Select Font:
+                                    </label>
+                                    <div style="margin-top: 15px; margin-left: 10px; margin-right: 10px; margin-bottom: 0px;">
+                                        <label style="display: block; font-family: 'Carlito'; margin-bottom: 5px; color:#333">
+                                            <input id="fontSelect" type="radio" name="fontChoice" value="carlito" checked>
+                                            Carlito (Calibri-minic-font)
+                                        </label>
+
+                                        <label style="display: block; font-family: 'Arimo'; margin-bottom: 5px; color:#333">
+                                            <input id="fontSelect" type="radio" name="fontChoice" value="arimo">
+                                            Arimo (Helvetica-minic-font)
+                                        </label>
+
+                                        <label style="display: block; font-family: 'Tinos'; margin-bottom: 5px; color:#333">
+                                            <input in="fontSelect" type="radio" name="fontChoice" value="tinos">
+                                            Tinos (Times-minic-font)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Advanced Settings -->
+                        <details id="advancedSettings" class="collapsible" style="margin-top: 8px; border: 1px solid #e0e0e0; border-radius: 6px;" title="Click to show/hide the advanced settings">
+                            <summary style="cursor: pointer; padding: 8px 12px; color: #5e89c2; font-weight: 600; user-select: none;">
+                                ⚙️ Advanced Settings
+                            </summary>
+                            <!-- <div class="input-row"> -->
+                                <div style="margin-bottom: 10px; margin-left: 14px;" title="click to show or hide the significant region backgrounds">
+                                    <label>
+                                        <input type="checkbox" id="showBackgroundColors" checked>
+                                        Show region backgrounds
+                                    </label>
+                                </div>
+
+                                <div style="margin-bottom: 10px; margin-left: 14px;" title="click to show or hide the count of DEGs">
+                                    <label>
+                                        <input type="checkbox" id="showNumDEGs" checked>
+                                        Add/remove count info
+                                    </label>
+                                </div>
+                            <!-- </div> -->
+                        </details> 
+
+                    </div> 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text Style Modal -->
+    <div id="textStyleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎨 Edit Gene Label Style</h3>
+                <span class="close" onclick="closeTextStyleModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="style-option">
+                    <label for="modalGeneText">Gene Name:</label>
+                    <input type="text" id="modalGeneText" placeholder="Enter gene name">
+                </div>
+                <div class="style-option">
+                    <label for="modalFontColor">Font Color:</label>
+                    <input type="color" id="modalFontColor" value="#000000">
+                </div>
+                <div class="style-option">
+                    <label for="modalFontSize">Font Size:</label>
+                    <input type="range" id="modalFontSize" min="8" max="24" value="12">
+                    <span id="fontSizeValue">12px</span>
+                </div>
+                <div class="style-option">
+                    <label for="modalFontWeight">Font Weight:</label>
+                    <select id="modalFontWeight">
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                        <option value="bolder">Bolder</option>
+                    </select>
+                </div>
+                <div class="style-option">
+                    <label for="modalFontStyle">Font Style:</label>
+                    <select id="modalFontStyle">
+                        <option value="normal">Normal</option>
+                        <option value="italic">Italic</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="removeGeneLabel()" class="add-gene-name-btn danger">🧹 Remove</button>
+                <button onclick="applyTextStyle()" class="add-gene-name-btn">Apply</button>
+                <button onclick="closeTextStyleModal()" class="add-gene-name-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Axis Label Modal -->
+    <div id="axisLabelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Axis Label</h3>
+            </div>
+            <div class="modal-body">
+                <div class="style-option">
+                    <label for="axisLabelText">Lebel:</label>
+                    <input type="text" id="axisLabelText" placeholder="Enter label text">
+                </div>
+                <div class="style-option">
+                    <label for="axisLabelColor">Font Color:</label>
+                    <input type="color" id="axisLabelColor" value="#000000">
+                </div>
+                <div class="style-option">
+                    <label for="axisLabelSize">Font Size:</label>
+                    <input type="range" id="axisLabelSize" min="8" max="24" value="14">
+                    <span id="axisLabelSizeValue">14px</span>
+                </div>
+                <div class="style-option">
+                    <label for="axisLabelWeight">Font Weight:</label>
+                    <select id="axisLabelWeight">
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                        <option value="bolder">Bolder</option>
+                    </select>
+                </div>
+                <div class="style-option">
+                    <label for="axisLabelStyle">Font Style:</label>
+                    <select id="axisLabelStyle">
+                        <option value="normal">Normal</option>
+                        <option value="italic">Italic</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="applyAxisLabelStyle()" class="add-gene-name-btn">Apply</button>
+                <button onclick="closeAxisLabelModal()" class="add-gene-name-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend Title Modal -->
+    <div id="legendTitleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Legend Title</h3>
+            </div>
+            <div class="modal-body">
+                <div class="style-option">
+                    <label for="legendTitleText">Title:</label>
+                    <input type="text" id="legendTitleText" placeholder="Enter label text">
+                </div>
+                <div class="style-option">
+                    <label for="legendTitleColor">Font Color:</label>
+                    <input type="color" id="legendTitleColor" value="#000000">
+                </div>
+                <div class="style-option">
+                    <label for="legendTitleSize">Font Size:</label>
+                    <input type="range" id="legendTitleSize" min="8" max="24" value="14">
+                    <span id="legendTitleSizeValue">14px</span>
+                </div>
+                <div class="style-option">
+                    <label for="legendTitleWeight">Font Weight:</label>
+                    <select id="legendTitleWeight">
+                        <option value="normal">Normal</option>
+                        <option value="bold">Bold</option>
+                        <option value="bolder">Bolder</option>
+                    </select>
+                </div>
+                <div class="style-option">
+                    <label for="legendTitleStyle">Font Style:</label>
+                    <select id="legendTitleStyle">
+                        <option value="normal">Normal</option>
+                        <option value="italic">Italic</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="applyLegendTitleStyle()" class="add-gene-name-btn">Apply</button>
+                <button onclick="closeLegendTitleModal()" class="add-gene-name-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dataParser.min.js"></script>
+    <script src="js/volcanoPlot.min.js"></script>
+    <script src="js/axisDragManager.min.js"></script> 
+    <script src="js/exportUtility.min.js"></script>
+    <script src="js/main.min.js"></script>
+</body>
+<div id="tooltip" class="tooltip"></div>
+</html>
